@@ -2,8 +2,6 @@ name: BTC 行情雷达（Jev）
 
 on:
   schedule:
-    # 私有仓库默认每 30 分钟巡检一次，避免过快消耗 GitHub Actions 月度运行额度。
-    # 行情数据本身仍读取 5 分钟 K 线。
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
@@ -13,7 +11,7 @@ permissions:
 
 concurrency:
   group: btc-radar-monitor
-  cancel-in-progress: false
+  cancel_in-progress: false
 
 jobs:
   monitor:
@@ -35,11 +33,17 @@ jobs:
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run monitor
-      - name: 推送 L2 / L3 手机异动提醒
+      - name: GitHub 异动提醒
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run notify
+      - name: Telegram 手机异动提醒
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npm run telegram
 
       - name: 把中文摘要写入任务页面
         if: always()
