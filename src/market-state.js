@@ -1,10 +1,13 @@
+// 市场状态整理模块：把多周期 K 线和技术指标整理成 Jev / GPT 能直接使用的结构化数据。
 import { atr, ema, macd, pctChange, round, rsi, zScoreLatest } from './indicators.js';
 import { config } from './config.js';
 
+// 最新一根 K 线相对上一根 K 线的涨跌幅。
 function latestReturn(candles) {
   return pctChange(candles.at(-1).close, candles.at(-2).close);
 }
 
+// 取最近若干根已完成 K 线的最高价和最低价，默认 20 根。
 function highLow(candles, lookback = 20) {
   const sample = candles.slice(-(lookback + 1), -1);
   return {
@@ -13,6 +16,7 @@ function highLow(candles, lookback = 20) {
   };
 }
 
+// 构建完整市场状态。
 export function buildMarketState({ m5, m15, h1, h4 }) {
   const price = m5.at(-1).close;
   const closes4h = h4.map(c => c.close);
@@ -73,6 +77,7 @@ export function buildMarketState({ m5, m15, h1, h4 }) {
     }
   };
 
+  // 固定规则预筛：不依赖 AI，用于避免仅凭 Jev 概率就频繁调用 GPT。
   state.heuristicFlags = {
     fastMove: Math.abs(state.returnsPct.m15) >= 1.2 || Math.abs(state.returnsPct.h1) >= 2.2,
     volumeShock: state.volumeZ.m5 >= 2.5 || state.volumeZ.m15 >= 2.5,
