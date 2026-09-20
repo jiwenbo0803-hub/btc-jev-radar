@@ -21,8 +21,10 @@ let triggerReason = null;
 
 if (mode === 'four-hour') {
   triggerReason = '计划内 4H 收盘复盘';
-} else if (level === 'L3' && state.heuristicPrefilter) {
-  triggerReason = 'L3 异常 + 规则预筛确认';
+} else if (level === 'L3') {
+  triggerReason = state.heuristicPrefilter
+    ? 'L3 异常（固定规则同时确认异常）'
+    : 'L3 异常（Jev 高置信度触发）';
 }
 
 if (triggerReason) {
