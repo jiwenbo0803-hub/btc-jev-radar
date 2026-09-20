@@ -1,59 +1,165 @@
-# BTC Jev Radar
+# BTC Jev 雷达
 
-BTC 4H market-structure radar using **Binance public market data + Jev + GPT-5.6 Sol + GitHub Actions**.
+这是一个面向 **BTC 4 小时级别行情监控** 的实验项目。
 
-## V0.1 design
+核心思路很简单：
 
-- Source granularity: 5m / 15m / 1H / 4H closed BTCUSDT candles.
-- Routine monitor: every 30 minutes by default.
-- Jev: every monitor run, returns probabilities for anomaly, 4H structure change, and need for immediate deep analysis.
-- L0: normal, log only.
-- L1: noteworthy, log only.
-- L2: clear anomaly, log + Actions summary; no GPT call.
-- L3: high-confidence anomaly plus deterministic market prefilter -> GPT-5.6 Sol deep analysis.
-- Scheduled 4H review: six times per day, always produces a GPT report.
-- Reports: committed under `reports/YYYY-MM-DD/` only when a GPT report is generated.
+> **Binance 提供行情 → Jev 负责快速判断 → GPT-5.6 Sol 只在重要时刻做深度分析 → GitHub Actions 自动运行**
 
-The 30-minute GitHub Actions schedule is intentional for a **private repository**. GitHub bills private-repository hosted-runner jobs by the minute, so 5-minute scheduling can burn through included monthly minutes quickly. The source still reads 5-minute candles, so the radar retains intraperiod detail. If the repository is public or later moves to a cheap always-on runner, polling can be tightened to 5–15 minutes.
+当前版本：**V0.1**
 
-## One required secret
+---
 
-Create a Vercel AI Gateway key and add this repository secret:
+## 一、这个项目现在能做什么
+
+- 读取 BTCUSDT 的 **5 分钟 / 15 分钟 / 1 小时 / 4 小时** 已收盘 K 线
+- 计算：
+  - EMA20 / EMA60
+  - RSI
+  - MACD
+  - ATR
+  - 成交量异常（Z-Score）
+  - 最近 20 根 4H K 线高低点
+- 每次巡检都让 **Jev** 判断：
+  - 当前行情是否异常
+  - 4H 市场结构是否正在变化
+  - 是否值得立即调用 GPT 深度分析
+- 把事件分成 **L0 / L1 / L2 / L3** 四级
+- 只有达到 L3 且规则预筛也确认异常时，才调用 GPT-5.6 Sol
+- 每 4 小时固定生成一次正式复盘
+- GPT 生成的报告会自动保存到 `reports/` 文件夹
+
+---
+
+## 二、四个等级是什么意思
+
+| 等级 | 含义 | 系统怎么处理 |
+|---|---|---|
+| L0 | 正常波动 | 记录，不打扰 |
+| L1 | 值得留意 | 记录，不调用 GPT |
+| L2 | 明显异常 | 记录到 GitHub Actions 摘要 |
+| L3 | 重要结构变化 | 触发 GPT 深度分析 |
+
+第一版阈值只是实验参数，**后续需要根据真实运行结果不断校准**。
+
+---
+
+## 三、仓库里每个东西是干什么的
+
+如果你不懂代码，主要看下面这张表就够了：
+
+| 文件 / 文件夹 | 用途 | 你是否需要经常看 |
+|---|---|---|
+| `README.md` | 就是你现在看的项目说明 | ✅ 经常看 |
+| `docs/SETUP.md` | 第一次配置和启动教程 | ✅ 配置时看 |
+| `reports/` | GPT 生成的正式复盘报告 | ✅ 最值得看 |
+| `.github/workflows/` | GitHub 自动运行规则 | 偶尔看 |
+| `src/` | 程序核心代码 | 一般不用动 |
+| `out/` | 每次运行产生的临时结果 | 调试时看 |
+| `.env.example` | API Key 和模型配置示例 | 配置时看 |
+| `package.json` | Node.js 项目依赖和运行命令 | 一般不用动 |
+
+### 你最常用的三个位置
+
+**1. 看自动任务有没有正常运行**
+
+GitHub 仓库 → **Actions**
+
+**2. 看正式 BTC 复盘**
+
+仓库 → **reports**
+
+**3. 修改运行逻辑**
+
+以后直接告诉 ChatGPT / Codex 你想改什么，不建议自己随便改 `src/`。
+
+---
+
+## 四、为什么目前是每 30 分钟巡检一次
+
+BTC 数据仍然读取 **5 分钟 K 线**，但 GitHub Actions 当前只每 **30 分钟启动一次**。
+
+原因是这个仓库是私有仓库，GitHub 托管运行时间有月度额度。如果直接每 5 分钟启动一次，一个月会产生大量任务。
+
+所以 V0.1 采用：
+
+> **5 分钟行情粒度 + 30 分钟巡检 + 4 小时正式复盘**
+
+等验证系统确实有价值后，再考虑：
+
+- 改成 15 分钟
+- 改成 5 分钟
+- 或迁到廉价云服务器 / 自托管 Runner
+
+---
+
+## 五、需要配置的唯一密钥
+
+当前 Jev 和 GPT 都通过 **Vercel AI Gateway** 调用。
+
+GitHub 仓库需要添加一个 Secret：
 
 `AI_GATEWAY_API_KEY`
 
-The same key routes:
+同一个 Key 同时调用：
 
 - `typesafe-ai/jev`
 - `openai/gpt-5.6-sol`
 
-No Binance key is required. The default source is Binance's official market-data-only endpoint `https://data-api.binance.vision`.
+Binance 行情目前使用公开接口，**不需要 Binance API Key**。
 
-## Run locally
+详细配置步骤见：
 
-```bash
-npm install
-cp .env.example .env
-# put AI_GATEWAY_API_KEY in .env
-npm run monitor
-npm run four-hour
-```
+`docs/SETUP.md`
 
-## Decision policy
+---
 
-Initial thresholds are deliberately conservative and are **not assumed to be calibrated**. They should be tuned after collecting labeled examples:
+## 六、当前判断规则
 
-- L1: Jev anomaly >= 0.60
-- L2: Jev anomaly >= 0.82
-- L3: needsDeepAnalysis >= 0.85 AND (structureChange >= 0.75 OR anomaly >= 0.90)
-- GPT L3 escalation additionally requires a deterministic prefilter: fast move, volume shock, 20x4H structure break, or extreme 1H RSI.
+初始阈值：
 
-Jev probability is a model estimate, not a guarantee. V0.1 is an observation and research system, not an automated trading system.
+- L1：Jev 异常概率 ≥ 60%
+- L2：Jev 异常概率 ≥ 82%
+- L3：
+  - “需要立即深度分析”概率 ≥ 85%
+  - 并且满足：
+    - 4H 结构变化概率 ≥ 75%
+    - 或异常概率 ≥ 90%
 
-## Next upgrades after V0.1 proves useful
+另外，真正调用 GPT 前还会再经过一次固定规则预筛，例如：
 
-1. Add derivatives: open interest, funding, liquidation data.
-2. Add persistent event deduplication and cool-down state.
-3. Add phone push notifications only for L2/L3.
-4. Backtest the thresholds against labeled historical BTC events.
-5. Move to 5-minute polling on a public/self-hosted/cheap cloud runner if latency becomes important.
+- 15 分钟 / 1 小时快速波动
+- 突然放量
+- 突破或跌破最近 20 根 4H K 线区间
+- 1 小时 RSI 极端
+
+这样做的目的就是：
+
+> **让 Jev 当雷达，让 GPT 当分析师，减少无意义的 GPT 调用。**
+
+---
+
+## 七、目前还没有做的功能
+
+后续可以继续增加：
+
+1. BTC 合约未平仓量（OI）
+2. Funding Rate（资金费率）
+3. 多空爆仓
+4. L2 / L3 手机推送
+5. 同一异常事件去重和冷却时间
+6. 历史 BTC 行情回测 Jev 阈值
+7. 5 分钟级持续运行
+8. 宏观事件和新闻联动
+
+---
+
+## 八、重要说明
+
+这个项目目前属于：
+
+**行情观察 + 技术研究 + AI 辅助复盘工具**
+
+不是自动交易机器人，也不会自动买卖 BTC。
+
+Jev 给出的概率是模型判断，不代表事实概率，必须经过一段真实行情运行以后再评估准确性。
