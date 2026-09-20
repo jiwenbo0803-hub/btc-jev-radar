@@ -24,9 +24,8 @@ export async function evaluateWithJev(state) {
         instructions: '相比等待下一次计划内 4 小时收盘复盘，当前市场状态是否值得立即启动一次更深入的 GPT 分析？'
       }
     },
-    providerOptions: {
-      gateway: { zeroDataRetention: true }
-    },
+    // Hobby 免费计划不支持 Zero Data Retention (ZDR)，因此不启用该企业功能。
+    // 当前请求仅使用 BTC 行情和技术指标数据。
     maxRetries: 1,
     abortSignal: AbortSignal.timeout(30_000)
   });
