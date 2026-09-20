@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: btc-radar-monitor
@@ -34,6 +35,12 @@ jobs:
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run monitor
+      - name: 推送 L2 / L3 手机异动提醒
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run notify
+
       - name: 把中文摘要写入任务页面
         if: always()
         run: |
