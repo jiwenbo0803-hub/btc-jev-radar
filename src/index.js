@@ -1,3 +1,4 @@
+// 主程序入口：串联行情获取 → 市场状态 → Jev 判断 → 必要时 GPT 深度分析 → 输出报告。
 import 'dotenv/config';
 import { fetchAllTimeframes } from './binance.js';
 import { buildMarketState } from './market-state.js';
@@ -7,7 +8,7 @@ import { persistReportIfPresent, writeOutputs } from './report.js';
 
 const mode = process.argv[2] ?? 'monitor';
 if (!['monitor', 'four-hour'].includes(mode)) {
-  throw new Error(`Unknown mode: ${mode}`);
+  throw new Error(`未知运行模式：${mode}`);
 }
 
 const candles = await fetchAllTimeframes();
@@ -31,6 +32,7 @@ if (triggerReason) {
 await writeOutputs({ state, jev, level, mode, analysis });
 const persisted = await persistReportIfPresent();
 
+// 控制台保留结构化 JSON，方便 GitHub Actions 和后续程序继续读取。
 console.log(JSON.stringify({
   timestampUtc: state.timestampUtc,
   price: state.price,
