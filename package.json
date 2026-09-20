@@ -1,0 +1,17 @@
+{
+  "name": "btc-jev-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BTC 4H market radar: Binance 5m data + Jev decision layer + GPT-5.6 Sol deep analysis.",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "monitor": "node src/index.js monitor",
+    "four-hour": "node src/index.js four-hour",
+    "check": "node --check src/index.js && node --check src/binance.js && node --check src/indicators.js && node --check src/market-state.js && node --check src/jev.js && node --check src/gpt.js && node --check src/report.js"
+  },
+  "dependencies": {
+    "ai": "7.0.105",
+    "dotenv": "16.6.1"
+  }
+}
