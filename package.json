@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "BTC 4H market radar: Binance 5m data + Jev decision layer + GPT-5.6 Sol deep analysis.",
+  "description": "BTC 4小时行情雷达：Binance 5分钟数据 + Jev 判断层 + GPT-5.6 Sol 深度分析。",
   "engines": {"node": ">=22"},
   "scripts": {
     "monitor": "node src/index.js monitor",
