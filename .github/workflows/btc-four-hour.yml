@@ -1,0 +1,48 @@
+name: BTC 4H Review
+
+on:
+  schedule:
+    # Binance 4H candles close at 00/04/08/12/16/20 UTC; run 7 minutes later.
+    - cron: '7 0,4,8,12,16,20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-4h-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Run scheduled 4H review
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        run: npm run four-hour
+      - name: Publish report to job summary
+        run: cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-4h-${{ github.run_id }}
+          path: out/
+          retention-days: 30
+      - name: Commit report
+        run: |
+          git config user.name "btc-jev-radar[bot]"
+          git config user.email "btc-jev-radar[bot]@users.noreply.github.com"
+          git add reports/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "report: BTC 4H review $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
