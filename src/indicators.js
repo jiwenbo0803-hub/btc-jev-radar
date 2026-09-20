@@ -1,13 +1,17 @@
+// 技术指标计算工具。函数名保留 EMA / RSI / MACD / ATR 等英文缩写，因为它们是交易领域通用名称。
+// 计算涨跌幅（百分比）。
 export function pctChange(current, previous) {
   return previous === 0 ? 0 : ((current / previous) - 1) * 100;
 }
 
+// 简单移动平均线 SMA。
 export function sma(values, period) {
   if (values.length < period) return null;
   const slice = values.slice(-period);
   return slice.reduce((a, b) => a + b, 0) / period;
 }
 
+// 计算一整段 EMA 序列。
 export function emaSeries(values, period) {
   if (values.length < period) return [];
   const multiplier = 2 / (period + 1);
@@ -21,11 +25,13 @@ export function emaSeries(values, period) {
   return out;
 }
 
+// 返回最新一根 EMA。
 export function ema(values, period) {
   const series = emaSeries(values, period);
   return series.at(-1) ?? null;
 }
 
+// RSI 相对强弱指标。
 export function rsi(values, period = 14) {
   if (values.length <= period) return null;
   let gains = 0;
@@ -49,6 +55,7 @@ export function rsi(values, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
+// MACD：返回主线、信号线和柱体。
 export function macd(values, fast = 12, slow = 26, signal = 9) {
   if (values.length < slow + signal) return null;
   const fastSeries = emaSeries(values, fast);
@@ -61,6 +68,7 @@ export function macd(values, fast = 12, slow = 26, signal = 9) {
   return { line, signal: signalLine, histogram: line - signalLine };
 }
 
+// ATR 平均真实波幅，用来衡量波动率。
 export function atr(candles, period = 14) {
   if (candles.length <= period) return null;
   const trs = [];
@@ -80,6 +88,7 @@ export function atr(candles, period = 14) {
   return current;
 }
 
+// 最新值 Z-Score；当前主要用来识别突然放量。
 export function zScoreLatest(values, lookback = 20) {
   if (values.length < lookback + 1) return null;
   const latest = values.at(-1);
@@ -90,6 +99,7 @@ export function zScoreLatest(values, lookback = 20) {
   return sd === 0 ? 0 : (latest - mean) / sd;
 }
 
+// 统一处理小数位。
 export function round(value, digits = 3) {
   if (value === null || value === undefined || Number.isNaN(value)) return null;
   const p = 10 ** digits;
