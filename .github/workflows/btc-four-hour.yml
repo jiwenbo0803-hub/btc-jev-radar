@@ -1,8 +1,8 @@
-name: BTC 4H Review
+name: BTC 4小时正式复盘（GPT）
 
 on:
   schedule:
-    # Binance 4H candles close at 00/04/08/12/16/20 UTC; run 7 minutes later.
+    # Binance 4H K线在 UTC 00/04/08/12/16/20 点收盘；系统在 7 分钟后运行，避开切换瞬间。
     - cron: '7 0,4,8,12,16,20 * * *'
   workflow_dispatch:
 
@@ -25,24 +25,24 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
-      - name: Run scheduled 4H review
+      - name: 运行计划内 4小时正式复盘
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run four-hour
-      - name: Publish report to job summary
+      - name: 把正式报告显示在任务摘要
         run: cat out/report.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload report artifact
+      - name: 保存本次正式复盘文件
         uses: actions/upload-artifact@v4
         with:
           name: btc-4h-${{ github.run_id }}
           path: out/
           retention-days: 30
-      - name: Commit report
+      - name: 把正式复盘写入 reports 文件夹
         run: |
           git config user.name "btc-jev-radar[bot]"
           git config user.email "btc-jev-radar[bot]@users.noreply.github.com"
           git add reports/
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "report: BTC 4H review $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git commit -m "报告：BTC 4小时复盘 $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin HEAD:"${GITHUB_REF_NAME}"
