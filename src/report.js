@@ -7,10 +7,50 @@ function pct(v) {
 }
 
 export function decisionSummary(state, jev, level, mode) {
-  return `# BTC Jev 行情雷达\n\n- 时间（UTC）：${state.timestampUtc}\n- 运行模式：${mode === 'four-hour' ? '4小时正式复盘' : '常规雷达巡检'}\n- BTC：$${state.price.toLocaleString('en-US')}\n- 5m / 15m / 1H / 4H：${state.returnsPct.m5}% / ${state.returnsPct.m15}% / ${state.returnsPct.h1}% / ${state.returnsPct.h4}%\n- Jev 异常概率：${pct(jev.anomaly)}\n- Jev 4H结构变化概率：${pct(jev.structureChange)}\n- Jev 需要深度分析概率：${pct(jev.needsDeepAnalysis)}\n- 事件等级：**${level}**\n- 4H RSI14：${state.rsi14.h4}\n- 4H EMA20 / EMA60：${state.trend4h.ema20} / ${state.trend4h.ema60}\n- 20根4H前高 / 前低：${state.structure4h.prior20High} / ${state.structure4h.prior20Low}\n`;
+  const status = state.marketStatus ?? {};
+
+  return `# BTC Jev 行情雷达
+
+- 时间（UTC）：${state.timestampUtc}
+- 运行模式：${mode === 'four-hour' ? '4小时正式复盘' : '常规雷达巡检'}
+- BTC：$${state.price.toLocaleString('en-US')}
+
+## AI异常判断
+
+- Jev 异常概率：${pct(jev.anomaly)}
+- Jev 4H结构变化概率：${pct(jev.structureChange)}
+- Jev 需要深度分析概率：${pct(jev.needsDeepAnalysis)}
+- 事件等级：**${level}**
+
+## BTC 4H交易状态
+
+- 趋势：${status.trend ?? '未计算'}
+- 动能：${status.momentum ?? '未计算'}
+- 当前阶段：**${status.phase ?? '未计算'}**
+
+## 关键位置
+
+- EMA20：${state.trend4h.ema20}
+- EMA60：${state.trend4h.ema60}
+- 当前价格距离EMA20：${state.trend4h.priceVsEma20Pct}%
+- 当前价格距离EMA60：${state.trend4h.priceVsEma60Pct}%
+- 20根4H前高：${state.structure4h.prior20High}
+- 距离前高：${state.structure4h.distanceToHighPct}%
+- 20根4H前低：${state.structure4h.prior20Low}
+- 距离前低：${state.structure4h.distanceToLowPct}%
+
+## 动能指标
+
+- 5m / 15m / 1H / 4H：${state.returnsPct.m5}% / ${state.returnsPct.m15}% / ${state.returnsPct.h1}% / ${state.returnsPct.h4}%
+- 4H RSI14：${state.rsi14.h4}
+
+## 未来观察
+
+- 上方：关注20根4H前高突破
+- 下方：关注EMA20趋势支撑
+`;
 }
 
-// 写入本次运行的临时结果。
 export async function writeOutputs({ state, jev, level, mode, analysis }) {
   await fs.mkdir('out', { recursive: true });
   await fs.writeFile('out/decision.json', JSON.stringify({ state, jev, level, mode }, null, 2));
@@ -23,7 +63,6 @@ export async function writeOutputs({ state, jev, level, mode, analysis }) {
   }
 }
 
-// 如果本次调用了 GPT，则把正式报告长期保存到 reports/。
 export async function persistReportIfPresent() {
   try {
     const report = await fs.readFile('out/report.md', 'utf8');
