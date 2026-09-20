@@ -11,12 +11,12 @@ permissions:
 
 concurrency:
   group: btc-radar-monitor
-  cancel_in-progress: false
+  cancel-in-progress: true
 
 jobs:
   monitor:
     name: Jev 雷达巡检
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - name: 检出仓库代码
