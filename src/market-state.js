@@ -2,12 +2,10 @@
 import { atr, ema, macd, pctChange, round, rsi, zScoreLatest } from './indicators.js';
 import { config } from './config.js';
 
-// 最新一根 K 线相对上一根 K 线的涨跌幅。
 function latestReturn(candles) {
   return pctChange(candles.at(-1).close, candles.at(-2).close);
 }
 
-// 取最近若干根已完成 K 线的最高价和最低价，默认 20 根。
 function highLow(candles, lookback = 20) {
   const sample = candles.slice(-(lookback + 1), -1);
   return {
@@ -16,7 +14,45 @@ function highLow(candles, lookback = 20) {
   };
 }
 
-// 构建完整市场状态。
+// 根据趋势、位置、动能判断 BTC 当前交易阶段。
+function classifyMarketPhase({ price, ema20, ema60, rsi4h, distanceToHighPct, distanceToLowPct }) {
+  const bullishTrend = price > ema20 && ema20 > ema60;
+  const bearishTrend = price < ema20 && ema20 < ema60;
+
+  if (bullishTrend && distanceToHighPct > -3 && rsi4h >= 55) {
+    return '高位震荡等待突破';
+  }
+
+  if (bullishTrend) {
+    return '4H多头趋势';
+  }
+
+  if (bearishTrend && distanceToLowPct < 5) {
+    return '回调风险观察';
+  }
+
+  if (bearishTrend) {
+    return '4H空头压力';
+  }
+
+  return '震荡整理';
+}
+
+function buildMarketStatus({ price, ema20, ema60, rsi4h, distanceToHighPct, distanceToLowPct }) {
+  const bullish = price > ema20 && ema20 > ema60;
+  const momentum = rsi4h >= 55 ? '偏强' : rsi4h <= 45 ? '偏弱' : '中性';
+
+  return {
+    trend: bullish ? '🟢 4H多头趋势' : price < ema20 ? '🔴 趋势偏弱' : '🟡 震荡趋势',
+    momentum: `${rsi4h} RSI动能${momentum}`,
+    phase: classifyMarketPhase({ price, ema20, ema60, rsi4h, distanceToHighPct, distanceToLowPct }),
+    observation: {
+      resistance: `关注20根4H前高 ${round(price / (1 + distanceToHighPct / 100), 2)}`,
+      support: `关注EMA20 ${round(ema20, 2)}`
+    }
+  };
+}
+
 export function buildMarketState({ m5, m15, h1, h4 }) {
   const price = m5.at(-1).close;
   const closes4h = h4.map(c => c.close);
@@ -65,19 +101,19 @@ export function buildMarketState({ m5, m15, h1, h4 }) {
       distanceToHighPct: round(pctChange(price, range4h.high), 3),
       distanceToLowPct: round(pctChange(price, range4h.low), 3),
       abovePrior20High: price > range4h.high,
-      belowPrior20Low: price < range4h.low,
-      lastClosedCandle: {
-        openTimeUtc: new Date(h4.at(-1).openTime).toISOString(),
-        closeTimeUtc: new Date(h4.at(-1).closeTime).toISOString(),
-        open: round(h4.at(-1).open, 2),
-        high: round(h4.at(-1).high, 2),
-        low: round(h4.at(-1).low, 2),
-        close: round(h4.at(-1).close, 2)
-      }
+      belowPrior20Low: price < range4h.low
     }
   };
 
-  // 固定规则预筛：不依赖 AI，用于避免仅凭 Jev 概率就频繁调用 GPT。
+  state.marketStatus = buildMarketStatus({
+    price,
+    ema20,
+    ema60,
+    rsi4h: state.rsi14.h4,
+    distanceToHighPct: state.structure4h.distanceToHighPct,
+    distanceToLowPct: state.structure4h.distanceToLowPct
+  });
+
   state.heuristicFlags = {
     fastMove: Math.abs(state.returnsPct.m15) >= 1.2 || Math.abs(state.returnsPct.h1) >= 2.2,
     volumeShock: state.volumeZ.m5 >= 2.5 || state.volumeZ.m15 >= 2.5,
