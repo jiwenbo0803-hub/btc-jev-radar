@@ -1,9 +1,10 @@
+// Jev 判断层：只负责快速判断，不负责长篇分析。
 import { experimental_evaluate as evaluate } from 'ai';
 import { config } from './config.js';
 
 export async function evaluateWithJev(state) {
   if (!process.env.AI_GATEWAY_API_KEY) {
-    throw new Error('AI_GATEWAY_API_KEY is missing. Add it as a GitHub Actions secret.');
+    throw new Error('缺少 AI_GATEWAY_API_KEY。请把 Vercel AI Gateway Key 添加到 GitHub Actions Secret。');
   }
 
   const result = await evaluate({
@@ -12,15 +13,15 @@ export async function evaluateWithJev(state) {
     questions: {
       anomaly: {
         type: 'boolean',
-        instructions: 'Is the supplied BTC market state materially abnormal for a 4-hour-structure trader, rather than ordinary short-term noise?'
+        instructions: '对于主要观察 4 小时级别结构的 BTC 交易者来说，当前市场状态是否属于值得关注的异常，而不是普通的短周期噪声？'
       },
       structureChange: {
         type: 'boolean',
-        instructions: 'Does the supplied evidence indicate a meaningful change or attempted change in BTC 4-hour market structure?'
+        instructions: '现有数据是否表明 BTC 的 4 小时级别市场结构正在发生、或正在尝试发生具有实际意义的变化？'
       },
       needsDeepAnalysis: {
         type: 'boolean',
-        instructions: 'Would this market state benefit from immediate deep analysis now instead of simply waiting for the next scheduled 4-hour close review?'
+        instructions: '相比等待下一次计划内 4 小时收盘复盘，当前市场状态是否值得立即启动一次更深入的 GPT 分析？'
       }
     },
     providerOptions: {
@@ -38,6 +39,7 @@ export async function evaluateWithJev(state) {
   };
 }
 
+// 根据 Jev 概率划分 L0～L3；阈值目前只是 V0.1 初始值。
 export function classifyLevel(jev) {
   const t = config.thresholds;
   if (
