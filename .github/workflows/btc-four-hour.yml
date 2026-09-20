@@ -15,16 +15,20 @@ concurrency:
 
 jobs:
   review:
+    name: GPT 4小时正式复盘
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - name: 检出仓库代码
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - name: 准备 Node.js 运行环境
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
+      - name: 安装程序依赖
+        run: npm install --no-audit --no-fund
       - name: 运行计划内 4小时正式复盘
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
