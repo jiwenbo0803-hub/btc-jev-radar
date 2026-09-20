@@ -163,3 +163,30 @@ Binance 行情目前使用公开接口，**不需要 Binance API Key**。
 不是自动交易机器人，也不会自动买卖 BTC。
 
 Jev 给出的概率是模型判断，不代表事实概率，必须经过一段真实行情运行以后再评估准确性。
+
+
+---
+
+## 九、为什么仓库里仍然会看到一些英文
+
+这些英文不是漏翻，而是**技术接口名称**，建议保留：
+
+| 英文 | 为什么不翻 |
+|---|---|
+| `README.md` | GitHub 默认项目说明文件名 |
+| `src` / `reports` / `out` | 程序路径，改名会牵连代码 |
+| `package.json` | Node.js 固定识别的文件名 |
+| `AI_GATEWAY_API_KEY` | 环境变量名，程序按这个名字读取 |
+| `BTC_SYMBOL` | 环境变量名 |
+| `monitor` / `four-hour` | npm 内部运行命令 |
+| `actions/checkout@v4` | GitHub 官方 Action 的技术标识 |
+| `runs-on` / `steps` / `uses` | GitHub Actions 固定语法 |
+| `EMA / RSI / MACD / ATR` | 交易领域通用指标缩写 |
+| `m5 / m15 / h1 / h4` | 程序内部周期字段 |
+| `anomaly / structureChange` 等 | 程序内部数据字段，保留后更稳定 |
+
+你平时真正需要阅读的**说明、任务名称、步骤名称、报错、报告、AI 提示词和代码注释**已经全部改成中文。
+
+可以把这个仓库理解为：
+
+> **外壳和说明全部中文，机器内部使用必要的英文技术标识。**
