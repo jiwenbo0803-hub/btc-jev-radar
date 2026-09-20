@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
+    inputs:
+      telegram_test:
+        description: '发送 Telegram 测试消息'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -23,21 +29,36 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: 准备 Node.js 运行环境
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - name: 安装程序依赖
         run: npm install --no-audit --no-fund
+
+      - name: Telegram连接测试
+        if: ${{ inputs.telegram_test == true }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d text="🚨 BTC Jev Radar 测试消息\n\nTelegram 通道连接正常。"
+
       - name: 运行 Jev 行情巡检
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run monitor
+
       - name: GitHub 异动提醒
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run notify
+
       - name: Telegram 手机异动提醒
         continue-on-error: true
         env:
@@ -49,6 +70,7 @@ jobs:
         if: always()
         run: |
           if [ -f out/summary.md ]; then cat out/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+
       - name: 保存本次判断结果
         uses: actions/upload-artifact@v4
         if: always()
@@ -56,6 +78,7 @@ jobs:
           name: btc-radar-${{ github.run_id }}
           path: out/
           retention-days: 14
+
       - name: 如果触发 L3，则保存深度分析报告
         run: |
           if [ ! -f out/report.md ]; then exit 0; fi
