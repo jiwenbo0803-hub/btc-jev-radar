@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "description": "BTC 4小时行情雷达：Binance 5分钟数据 + Jev 判断层 + GPT-5.6 Sol 深度分析。",
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "monitor": "node src/index.js monitor",
     "four-hour": "node src/index.js four-hour",
-    "check": "node --check src/index.js && node --check src/binance.js && node --check src/indicators.js && node --check src/market-state.js && node --check src/jev.js && node --check src/gpt.js && node --check src/report.js"
+    "check": "node --check src/index.js && node --check src/binance.js && node --check src/indicators.js && node --check src/market-state.js && node --check src/jev.js && node --check src/gpt.js && node --check src/report.js && node --check src/github-notify.js",
+    "notify": "node src/github-notify.js"
   },
   "dependencies": {
     "ai": "7.0.105",
