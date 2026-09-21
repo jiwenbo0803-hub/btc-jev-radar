@@ -13,6 +13,10 @@ async function runModel(model, prompt) {
   return result.text;
 }
 
+function isAccessDenied(message = '') {
+  return /free tier users do not have access|upgrade to paid credits|does not have access/i.test(message);
+}
+
 export async function deepAnalyze(state, decision, reason) {
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error('缺少 AI_GATEWAY_API_KEY，无法调用 GPT 深度分析。');
@@ -25,20 +29,23 @@ export async function deepAnalyze(state, decision, reason) {
 
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
-
-    // 主模型先额外重试一次；Gateway 偶发 5xx 不应直接让整次 4H 复盘失败。
     const attempts = i === 0 ? 2 : 1;
+
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         const text = await runModel(model, prompt);
+        console.log(`4H 深度分析实际使用模型：${model}`);
         if (model !== config.gptModel) {
-          console.warn(`GPT 主模型不可用，本次复盘已降级使用：${model}`);
+          console.warn(`GPT-5.6 Sol 当前不可用，本次复盘已自动降级：${model}`);
         }
         return text;
       } catch (error) {
         const message = error?.message ?? String(error);
         errors.push(`${model} 第${attempt}次：${message}`);
         console.warn(`GPT 调用失败 [${model}] 第 ${attempt}/${attempts} 次：${message}`);
+
+        // 权限错误不是瞬时故障，重试同一个模型没有意义，直接进入免费兜底模型。
+        if (isAccessDenied(message)) break;
         if (attempt < attempts) await sleep(1500);
       }
     }
