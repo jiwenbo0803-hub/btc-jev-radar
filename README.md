@@ -1,279 +1,305 @@
-# BTC Jev 智能行情雷达
+# ₿ BTC Jev Radar
 
-这是一个面向 **BTC 4 小时级别行情监控** 的实验项目。
+> **一个轻量、可复制的 BTC AI 行情雷达模板。**  
+> Binance 提供公开 K 线，Jev 负责快速判断，AI Gateway 负责深度复盘，GitHub Actions 负责自动运行，Telegram / GitHub Issue 负责把真正值得看的变化推到手机。
 
-你可以先把它理解成一句话：
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933?logo=node.js&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Automation-2088FF?logo=github-actions&logoColor=white)
+![BTC](https://img.shields.io/badge/BTC-Market_Radar-F7931A?logo=bitcoin&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-> **Binance 给数据，Jev 判断有没有事，GPT 负责解释发生了什么，GitHub 负责自动执行。**
+这个项目不是交易机器人，也不会自动下单。它更像一个 **24 小时值班的行情观察员**：平时安静，行情出现异常时再提醒你；每根 4H K 线收盘后，再自动生成一份简短复盘。
 
-当前版本：**V0.1**
+## 为什么做这个项目
 
----
+很多行情工具的问题不是“数据不够”，而是**提醒太多、噪声太大、每次都让大模型长篇分析成本也高**。
 
-## 你只需要先看这 3 个地方
+BTC Jev Radar 把任务拆成三层：
 
-### ① Actions：看系统有没有正常运行
+```mermaid
+flowchart LR
+    A[Binance 公共K线] --> B[技术指标与市场状态]
+    B --> C[Jev 快速判断层]
+    C --> D{L0/L1/L2/L3}
+    D -->|L0/L1| E[静默记录]
+    D -->|L2| F[Telegram / GitHub Issue 提醒]
+    D -->|L3| G[AI 深度分析]
+    H[每4小时收盘] --> I[固定正式复盘]
+    I --> G
+    G --> J[中文精简报告]
+    J --> K[Telegram / Artifact / reports]
+```
 
-进入仓库顶部的：
+核心思路很简单：
 
-**Actions**
+> **让便宜、快速的判断层决定“值不值得看”，让大模型只处理真正需要解释的场景。**
 
-这里能看到：
+## 现在能做什么
 
-- Jev 雷达有没有正常巡检
-- 4 小时复盘有没有正常执行
-- 某次运行有没有报错
-- 某次运行是不是触发了 L2 / L3 异常
+- 自动读取 BTCUSDT 的 5m / 15m / 1H / 4H 已收盘 K 线
+- 自动计算 EMA20、EMA60、RSI14、MACD、ATR、成交量 Z-Score、20 根 4H 前高前低
+- Jev 每次巡检判断：
+  - 当前是否属于值得关注的异常
+  - 4H 市场结构是否正在发生变化
+  - 是否值得立即启动深度分析
+- 把事件划分为 L0 / L1 / L2 / L3
+- L2 / L3 可推送 Telegram，也可创建 GitHub Issue
+- L3 自动触发 AI 深度分析
+- 每 4 小时固定生成一份正式复盘
+- AI 输出自动清洗为短中文结论，避免输出长篇推理草稿
+- 可把运行结果保存为 GitHub Artifact，或选择写回 `reports/`
 
----
+## 两条自动化工作流
 
-### ② reports：看正式 BTC 复盘
+| Workflow | 默认节奏 | 用途 | 推送逻辑 |
+|---|---:|---|---|
+| **BTC 行情雷达（Jev）** | 每 30 分钟 | 发现异常、结构变化、快速波动 | L2/L3 才提醒 |
+| **BTC 4小时正式复盘（GPT）** | 每根 4H K线收盘后 7 分钟 | 固定生成正式复盘 | 每次都可推送 Telegram |
+
+> 为了让这个仓库适合作为公开模板，**定时任务默认不会真正执行**。配置完成后，把 Repository Variable `ENABLE_SCHEDULED_RUNS` 设置为 `true` 即可启用。
+
+## L0～L3 是什么意思
+
+| 等级 | 含义 | 默认处理 |
+|---|---|---|
+| L0 | 正常波动 | 静默 |
+| L1 | 值得留意 | 记录，不打扰 |
+| L2 | 明显异常 | Telegram / GitHub Issue 提醒 |
+| L3 | 重要结构变化 | 提醒 + AI 深度分析 |
+
+V0.1 默认阈值位于 `src/config.js`。这些阈值是实验参数，不是市场真理，建议先跑一段时间再按自己的交易周期校准。
+
+## 5 分钟快速上手
+
+### 1. 使用这个模板
+
+仓库标记为 Template 后，点击 GitHub 页面右上方的 **Use this template**，创建你自己的仓库。
+
+也可以直接 Fork。
+
+### 2. 准备 AI Gateway Key
+
+项目默认通过 **Vercel AI Gateway** 调用：
+
+- Jev：`typesafe-ai/jev`
+- 深度分析模型：默认 `openai/gpt-5.6-sol`
+- 备用模型：默认 `inclusionai/ling-3.0-flash-vl-free`
+
+不同账户可访问的模型可能不同。你可以用 GitHub Variables 覆盖模型 ID，而不需要改代码。
+
+在仓库中添加 Secret：
+
+```text
+Settings
+→ Secrets and variables
+→ Actions
+→ Secrets
+→ New repository secret
+```
+
+添加：
+
+```text
+AI_GATEWAY_API_KEY
+```
+
+### 3. 如果要 Telegram 推送
+
+再添加两个 Secrets：
+
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+然后添加 Repository Variable：
+
+```text
+ENABLE_TELEGRAM=true
+```
+
+详细 Telegram 配置见 [docs/SETUP.md](docs/SETUP.md)。
+
+### 4. 先手动测试
 
 进入：
 
-**reports**
+```text
+Actions
+→ BTC 行情雷达（Jev）
+→ Run workflow
+```
 
-这里保存 GPT 生成的正式复盘报告。
+再运行：
 
-最值得看的是：
+```text
+Actions
+→ BTC 4小时正式复盘（GPT）
+→ Run workflow
+```
 
-`reports/latest.md`
+手动运行不依赖 `ENABLE_SCHEDULED_RUNS`。
 
-它始终代表：
+### 5. 打开自动运行
 
-> **最新一份正式 BTC 复盘。**
+确认两条任务都跑通后，在：
 
----
+```text
+Settings
+→ Secrets and variables
+→ Actions
+→ Variables
+```
 
-### ③ README：看整个项目怎么工作
+添加：
 
-也就是你现在看的这个页面。
+```text
+ENABLE_SCHEDULED_RUNS=true
+```
 
-如果以后忘了怎么配置 API Key，可以看：
+从此：
 
-`docs/SETUP.md`
+- 雷达每 30 分钟巡检一次
+- 4H 正式复盘在 UTC 00:07 / 04:07 / 08:07 / 12:07 / 16:07 / 20:07 自动运行
 
----
+### 6. 按需要打开附加功能
 
-## 当前运行规则
-
-> **5 分钟行情数据｜30 分钟巡检｜L2/L3 手机提醒｜4 小时正式复盘｜L3 才调用 GPT**
-
-具体来说：
-
-- 行情底层读取 **5 分钟 K 线**
-- GitHub 每 **30 分钟**启动一次 Jev 巡检
-- 每 **4 小时**固定进行一次正式复盘
-- 普通波动不会频繁调用 GPT
-- L2 / L3 会自动创建 GitHub Issue 作为手机提醒
-- L3 会临时启动 GPT 深度分析，并把分析正文放进 Issue
-
----
-
-## 这个项目现在能做什么
-
-- 读取 BTCUSDT 的 **5 分钟 / 15 分钟 / 1 小时 / 4 小时** 已收盘 K 线
-- 计算：
-  - EMA20 / EMA60（趋势均线）
-  - RSI（强弱指标）
-  - MACD（趋势与动能）
-  - ATR（波动率）
-  - 成交量异常（Z-Score）
-  - 最近 20 根 4H K 线高低点
-- 每次巡检都让 **Jev** 判断：
-  - 当前行情是否异常
-  - 4H 市场结构是否正在变化
-  - 是否值得立即调用 GPT 深度分析
-- 把事件分成 **L0 / L1 / L2 / L3** 四级
-- 达到 L3 时调用 GPT-5.6 Sol 深度分析
-- 每 4 小时固定生成一次正式复盘
-- GPT 生成的报告会自动保存到 `reports/` 文件夹
-
----
-
-## 四个等级是什么意思
-
-| 等级 | 含义 | 系统怎么处理 |
+| Variable | 值 | 作用 |
 |---|---|---|
-| L0 | 正常波动 | 记录，不打扰 |
-| L1 | 值得留意 | 记录，不调用 GPT |
-| L2 | 明显异常 | 自动创建 GitHub Issue，手机提醒；不调用 GPT |
-| L3 | 重要结构变化 | 自动调用 GPT 深度分析，并把正文放进 Issue |
+| `ENABLE_SCHEDULED_RUNS` | `true` | 开启定时运行 |
+| `ENABLE_TELEGRAM` | `true` | 开启 Telegram 推送 |
+| `ENABLE_GITHUB_ISSUES` | `true` | L2/L3 自动创建 Issue |
+| `SAVE_REPORTS_TO_REPO` | `true` | 把正式报告写回 `reports/` |
 
-第一版阈值只是实验参数，**后续需要根据真实运行结果不断校准**。
+这些功能默认关闭，避免新建模板仓库后在尚未配置 Secret 时反复报错。
 
----
+## 可配置项
 
-## 仓库里每个东西是干什么的
+以下参数既可以本地写入 `.env`，也可以在 GitHub Actions Variables 中设置：
 
-如果你不懂代码，主要看下面这张表就够了：
-
-| 文件 / 文件夹 | 用途 | 你是否需要经常看 |
+| 变量 | 默认值 | 说明 |
 |---|---|---|
-| `README.md` | 就是你现在看的项目说明 | ✅ 经常看 |
-| `docs/SETUP.md` | 第一次配置和启动教程 | ✅ 配置时看 |
-| `reports/` | GPT 生成的正式复盘报告 | ✅ 最值得看 |
-| `.github/workflows/` | GitHub 自动运行规则 | 偶尔看 |
-| `src/` | 程序核心代码 | 一般不用动 |
-| `out/` | 每次运行产生的临时结果 | 调试时看 |
-| `.env.example` | API Key 和模型配置示例 | 配置时看 |
-| `package.json` | Node.js 项目依赖和运行命令 | 一般不用动 |
+| `BTC_SYMBOL` | `BTCUSDT` | 监控交易对 |
+| `BINANCE_BASE_URL` | `https://data-api.binance.vision` | Binance 公共行情地址 |
+| `JEV_MODEL` | `typesafe-ai/jev` | Jev 模型 |
+| `GPT_MODEL` | `openai/gpt-5.6-sol` | 深度分析首选模型 |
+| `GPT_FALLBACK_MODEL_1` | `inclusionai/ling-3.0-flash-vl-free` | 备用模型 |
 
----
+模型是否可用取决于你自己的 AI Gateway 账户权限与当前服务策略。默认模型不可用时，直接换成自己账户可访问的模型即可。
 
-## 为什么目前是每 30 分钟巡检一次
+## 本地运行
 
-BTC 数据仍然读取 **5 分钟 K 线**，但 GitHub Actions 当前只每 **30 分钟启动一次**。
+需要 Node.js 22+。
 
-原因是这个仓库是私有仓库，GitHub 托管运行时间有月度额度。如果直接每 5 分钟启动一次，一个月会产生大量任务。
+```bash
+npm install
+cp .env.example .env
+```
 
-所以 V0.1 采用：
+填写 `.env` 后：
 
-> **5 分钟行情粒度 + 30 分钟巡检 + 4 小时正式复盘**
+```bash
+npm run monitor
+npm run four-hour
+npm run check
+```
 
-等验证系统确实有价值后，再考虑：
+Telegram 独立测试：
 
-- 改成 15 分钟
-- 改成 5 分钟
-- 或迁到廉价云服务器 / 自托管 Runner
+```bash
+npm run telegram:test
+```
 
----
+## 输出在哪里
 
-## 需要配置的唯一密钥
+每次运行会生成：
 
-当前 Jev 和 GPT 都通过 **Vercel AI Gateway** 调用。
+```text
+out/
+├── decision.json   # 完整结构化状态
+├── summary.md      # 中文摘要
+└── report.md       # 触发深度分析时生成
+```
 
-GitHub 仓库需要添加一个 Secret：
+GitHub Actions 同时会保存 Artifact。
 
-`AI_GATEWAY_API_KEY`
+如果开启：
 
-同一个 Key 同时调用：
+```text
+SAVE_REPORTS_TO_REPO=true
+```
 
-- `typesafe-ai/jev`
-- `openai/gpt-5.6-sol`
+正式报告还会写入：
 
-Binance 行情目前使用公开接口，**不需要 Binance API Key**。
+```text
+reports/YYYY-MM-DD/
+reports/latest.md
+```
 
-详细配置步骤见：
+可以查看 [示例报告](docs/EXAMPLE_REPORT.md)。
 
-`docs/SETUP.md`
+## 项目结构
 
----
+```text
+.
+├── .github/workflows/       # 两条 GitHub Actions 自动化
+├── docs/                    # 中文使用文档
+├── out/                     # 临时运行结果
+├── reports/                 # 可选的历史正式报告
+├── src/
+│   ├── binance.js           # Binance K线
+│   ├── indicators.js        # 技术指标
+│   ├── market-state.js      # 市场状态整理
+│   ├── jev.js               # Jev 快速判断层
+│   ├── gpt.js               # 深度分析与输出清洗
+│   ├── report.js            # 报告生成
+│   ├── telegram-notify.js   # Telegram 推送
+│   └── github-notify.js     # GitHub Issue 推送
+├── .env.example
+└── package.json
+```
 
-## 当前判断规则
+更详细的数据流见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
-初始阈值：
+## 适合拿来继续实验的方向
 
-- L1：Jev 异常概率 ≥ 60%
-- L2：Jev 异常概率 ≥ 82%
-- L3：
-  - “需要立即深度分析”概率 ≥ 85%
-  - 并且满足：
-    - 4H 结构变化概率 ≥ 75%
-    - 或异常概率 ≥ 90%
+这个仓库刻意保持轻量，方便继续改造。例如可以增加：
 
-系统还会额外计算一组固定规则信号，例如：
+- Funding Rate / OI / 爆仓数据
+- ETH、SOL 或其他交易对
+- 多币种统一雷达
+- 历史回测 Jev 阈值
+- 更细的市场阶段分类
+- 假突破风险评分
+- 多模型路由
+- Bark / Discord / Slack / 企业微信等推送
+- 自托管 Runner 或 VPS，提升巡检频率
 
-- 15 分钟 / 1 小时快速波动
-- 突然放量
-- 突破或跌破最近 20 根 4H K 线区间
-- 1 小时 RSI 极端
+## 安全说明
 
-这些规则会作为辅助信息显示在提醒和报告里，但 **L3 本身就会触发 GPT 深度分析**。
+**不要把任何真实 API Key、Bot Token、Chat ID 写进代码或 README。**
 
-这样做的目的就是：
+这个模板只读取公开 Binance 行情，不需要 Binance 账户密钥，也不包含自动交易能力。
 
-> **让 Jev 当雷达，让 GPT 当分析师，L2 只提醒，L3 才进行深度分析。**
+公开仓库前建议阅读 [SECURITY.md](SECURITY.md)。
 
----
+## 风险声明
 
-## 手机异动提醒怎么工作
+本项目用于 **行情观察、技术研究和 AI 自动化实验**。
 
-系统通过 **GitHub Issue** 给手机发送异动提醒。
+- 不构成投资建议
+- 不自动买卖任何资产
+- Jev 输出的概率是模型评分，不是客观市场概率
+- 技术指标与 AI 判断都可能失效
+- 使用第三方模型/API 时请自行关注费用、额度与服务条款
 
-### L2
+## 文档
 
-系统自动创建：
+- [第一次配置：docs/SETUP.md](docs/SETUP.md)
+- [系统架构：docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [示例报告：docs/EXAMPLE_REPORT.md](docs/EXAMPLE_REPORT.md)
+- [安全说明：SECURITY.md](SECURITY.md)
 
-> ⚠️ BTC L2 明显异动
+## License
 
-Issue 里包含：
-
-- 当前 BTC 价格
-- 5m / 15m / 1H / 4H 涨跌幅
-- Jev 三项判断概率
-- RSI / EMA / 4H 前高前低
-- 当前触发的固定规则信号
-
-L2 不调用 GPT。
-
-### L3
-
-系统自动创建：
-
-> 🚨 BTC L3 重要异动｜GPT 深度分析
-
-除了上面的数据，还会把 **GPT-5.6 Sol 的完整深度分析**直接放进 Issue。
-
-Issue 会优先自动指派给仓库拥有者，用来触发 GitHub 手机通知。
-
-### 防止刷屏
-
-同类异常不会每 30 分钟重复提醒：
-
-- L2：同类事件 **4 小时冷却**
-- L3：同类事件 **2 小时冷却**
-
-你需要在手机上安装 GitHub App，并允许 GitHub 推送通知。
-
----
-
-## 目前还没有做的功能
-
-后续可以继续增加：
-
-1. BTC 合约未平仓量（OI）
-2. Funding Rate（资金费率）
-3. 多空爆仓
-4. 历史 BTC 行情回测 Jev 阈值
-5. 5 分钟级持续运行
-6. 宏观事件和新闻联动
-7. 更醒目的 Telegram / Bark / 微信类推送通道
-
----
-
-## 重要说明
-
-这个项目目前属于：
-
-**行情观察 + 技术研究 + AI 辅助复盘工具**
-
-不是自动交易机器人，也不会自动买卖 BTC。
-
-Jev 给出的概率是模型判断，不代表事实概率，必须经过一段真实行情运行以后再评估准确性。
-
----
-
-## 为什么仓库里仍然会看到一些英文
-
-这些英文不是漏翻，而是**技术接口名称**，建议保留：
-
-| 英文 | 为什么不翻 |
-|---|---|
-| `README.md` | GitHub 默认项目说明文件名 |
-| `src` / `reports` / `out` | 程序路径，改名会牵连代码 |
-| `package.json` | Node.js 固定识别的文件名 |
-| `AI_GATEWAY_API_KEY` | 环境变量名，程序按这个名字读取 |
-| `BTC_SYMBOL` | 环境变量名 |
-| `monitor` / `four-hour` | npm 内部运行命令 |
-| `actions/checkout@v4` | GitHub 官方 Action 的技术标识 |
-| `runs-on` / `steps` / `uses` | GitHub Actions 固定语法 |
-| `EMA / RSI / MACD / ATR` | 交易领域通用指标缩写 |
-| `m5 / m15 / h1 / h4` | 程序内部周期字段 |
-| `anomaly / structureChange` 等 | 程序内部数据字段，保留后更稳定 |
-
-你平时真正需要阅读的**说明、任务名称、步骤名称、报错、报告、AI 提示词和代码注释**都已经中文化。
-
-可以把这个仓库理解为：
-
-> **外壳和说明全部中文，机器内部使用必要的英文技术标识。**
+MIT License。你可以自由 Fork、修改和用于自己的实验项目。
