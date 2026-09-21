@@ -1,6 +1,9 @@
 name: BTC 4小时正式复盘（GPT）
 
 on:
+  schedule:
+    # Binance 4H K线在 UTC 00/04/08/12/16/20 点收盘；7分钟后运行，避开切换瞬间。
+    - cron: '7 0,4,8,12,16,20 * * *'
   workflow_dispatch:
 
 permissions:
@@ -20,24 +23,37 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: 准备 Node.js 运行环境
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - name: 安装程序依赖
         run: npm install --no-audit --no-fund
+
       - name: 运行计划内 4小时正式复盘
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run four-hour
+
+      - name: Telegram 推送 4小时复盘
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npm run telegram
+
       - name: 把正式报告显示在任务摘要
         run: cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: 保存本次正式复盘文件
         uses: actions/upload-artifact@v4
         with:
           name: btc-4h-${{ github.run_id }}
           path: out/
           retention-days: 30
+
       - name: 把正式复盘写入 reports 文件夹
         run: |
           git config user.name "btc-jev-radar[bot]"
