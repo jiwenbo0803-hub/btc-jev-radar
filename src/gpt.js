@@ -4,13 +4,67 @@ import { config } from './config.js';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function runModel(model, prompt) {
+function localFallbackSummary(state) {
+  const status = state.marketStatus || {};
+  const t = state.trend4h || {};
+  const s = state.structure4h || {};
+  const r = state.rsi14 || {};
+  const v = state.volumeZ || {};
+
+  const momentum = Number(t.macdHistogram) >= 0 ? 'MACD动能偏强' : 'MACD动能有所回落';
+  const volume = Number(v.h4) >= 0.5 ? '4H量能偏强' : Number(v.h4) <= -0.5 ? '4H量能偏弱' : '4H量能一般';
+
+  return [
+    '## 1. 4H结构判断\n' + (status.phase || status.trend || '数据不足') + '。',
+    '## 2. 动能与量价\nRSI14 为 ' + (r.h4 ?? '数据不足') + '，' + momentum + '，' + volume + '。',
+    '## 3. 关键位置\n前高 ' + (s.prior20High ?? '数据不足') + '；EMA20 ' + (t.ema20 ?? '数据不足') + '；EMA60 ' + (t.ema60 ?? '数据不足') + '；前低 ' + (s.prior20Low ?? '数据不足') + '。',
+    '## 4. 风险提示\n重点观察前高附近是否受阻，以及价格是否跌回 EMA20 下方。',
+    '## 5. 下一根4H验证\n① 是否突破前高；② 是否守住 EMA20；③ RSI 是否继续走强；④ 4H量能是否同步放大。',
+    '## 6. 一句话结论\n' + (status.trend || '结构待确认') + '，当前等待关键位确认方向。'
+  ].join('\n\n');
+}
+
+function cleanFinalText(text, state) {
+  let cleaned = String(text || '').trim();
+
+  // 免费兜底模型偶尔会输出任务解析/思考草稿；发现后直接弃用，绝不写入报告。
+  if (/Analyze the Request|Analyze the Data|Drafting the Content|chain of thought|reasoning process/i.test(cleaned)) {
+    return localFallbackSummary(state);
+  }
+
+  const markers = [
+    /##\s*1[.、]?\s*4H结构判断/i,
+    /\*\*1[.、]?\s*4H结构判断\*\*/i,
+    /1[.、]\s*4H结构判断/i
+  ];
+  let start = -1;
+  for (const pattern of markers) {
+    const match = cleaned.match(pattern);
+    if (match && match.index != null && (start < 0 || match.index < start)) start = match.index;
+  }
+  if (start > 0) cleaned = cleaned.slice(start);
+
+  cleaned = cleaned
+    .replace(/^\x60\x60\x60(?:markdown)?\s*/i, '')
+    .replace(/\x60\x60\x60\s*$/i, '')
+    .trim();
+
+  const chineseChars = (cleaned.match(/[\u4e00-\u9fff]/g) || []).length;
+  if (chineseChars < 40 || cleaned.length > 1800) {
+    return localFallbackSummary(state);
+  }
+
+  return cleaned;
+}
+
+async function runModel(model, prompt, state) {
   const result = await generateText({
     model,
+    system: '只输出最终结论。禁止输出思考过程、任务解析、分析草稿、英文说明或自我解释。全文使用中文 Markdown，不超过 500 字。',
     prompt,
-    maxOutputTokens: 1800
+    maxOutputTokens: 700
   });
-  return result.text;
+  return cleanFinalText(result.text, state);
 }
 
 function isAccessDenied(message = '') {
@@ -22,7 +76,23 @@ export async function deepAnalyze(state, decision, reason) {
     throw new Error('缺少 AI_GATEWAY_API_KEY，无法调用 GPT 深度分析。');
   }
 
-  const prompt = `你是一名只基于给定数据工作的 BTC 市场结构分析员。不要猜测不存在的新闻或宏观催化，不给出买入/卖出指令。\n\n分析触发原因：${reason}\nJev 判断：${JSON.stringify(decision, null, 2)}\n市场状态：${JSON.stringify(state, null, 2)}\n\n请用中文输出 Markdown，严格包含：\n1. 4H 结构判断（趋势/震荡/突破尝试/跌破尝试）\n2. 当前动能与量价是否一致\n3. 关键观察位（只能使用输入中的 prior20High、prior20Low、EMA20、EMA60 和最近4H K线高低点）\n4. 风险提示（假突破、动能衰减、过热/超卖等，只在数据支持时写）\n5. 下一根 4H K线需要验证的 3-5 个条件\n6. 一句话结论\n\n如果数据不足，明确写“数据不足”，不要补造原因。`;
+  const prompt = [
+    '请根据以下数据直接给出最终复盘，不展示任何推理过程。',
+    '',
+    '触发原因：' + reason,
+    'Jev判断：' + JSON.stringify(decision),
+    '市场状态：' + JSON.stringify(state),
+    '',
+    '严格按以下 6 项输出，每项 1-2 句，全文控制在 500 字以内：',
+    '## 1. 4H结构判断',
+    '## 2. 动能与量价',
+    '## 3. 关键位置',
+    '## 4. 风险提示',
+    '## 5. 下一根4H验证',
+    '## 6. 一句话结论',
+    '',
+    '要求：只写中文最终结论；不写 Analyze、Drafting、Reasoning 等过程内容；不猜新闻或宏观催化；不给买入卖出指令；关键位置只使用输入已有数据；数据不足就写“数据不足”。'
+  ].join('\n');
 
   const models = [config.gptModel, ...config.gptFallbackModels];
   const errors = [];
@@ -33,23 +103,22 @@ export async function deepAnalyze(state, decision, reason) {
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
-        const text = await runModel(model, prompt);
-        console.log(`4H 深度分析实际使用模型：${model}`);
+        const text = await runModel(model, prompt, state);
+        console.log('4H 深度分析实际使用模型：' + model);
         if (model !== config.gptModel) {
-          console.warn(`GPT-5.6 Sol 当前不可用，本次复盘已自动降级：${model}`);
+          console.warn('GPT-5.6 Sol 当前不可用，本次复盘已自动降级：' + model);
         }
         return text;
       } catch (error) {
-        const message = error?.message ?? String(error);
-        errors.push(`${model} 第${attempt}次：${message}`);
-        console.warn(`GPT 调用失败 [${model}] 第 ${attempt}/${attempts} 次：${message}`);
+        const message = error?.message || String(error);
+        errors.push(model + ' 第' + attempt + '次：' + message);
+        console.warn('GPT 调用失败 [' + model + '] 第 ' + attempt + '/' + attempts + ' 次：' + message);
 
-        // 权限错误不是瞬时故障，重试同一个模型没有意义，直接进入免费兜底模型。
         if (isAccessDenied(message)) break;
         if (attempt < attempts) await sleep(1500);
       }
     }
   }
 
-  throw new Error(`GPT 深度分析全部失败：${errors.join(' | ')}`);
+  throw new Error('GPT 深度分析全部失败：' + errors.join(' | '));
 }
