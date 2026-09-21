@@ -13,8 +13,29 @@ if (!['monitor', 'four-hour'].includes(mode)) {
 
 const candles = await fetchAllTimeframes();
 const state = buildMarketState(candles);
-const jev = await evaluateWithJev(state);
-const level = classifyLevel(jev);
+
+let jev;
+let level;
+
+try {
+  jev = await evaluateWithJev(state);
+  level = classifyLevel(jev);
+} catch (error) {
+  // 常规雷达本身依赖 Jev，Jev 挂了就应该失败；
+  // 计划内 4H 正式复盘则不能因为 Jev 临时故障而整次作废。
+  if (mode === 'monitor') throw error;
+
+  jev = {
+    anomaly: null,
+    structureChange: null,
+    needsDeepAnalysis: null,
+    providerMetadata: null,
+    unavailable: true,
+    error: error?.message ?? String(error)
+  };
+  level = 'N/A';
+  console.warn(`Jev 本次不可用，4H 正式复盘继续执行：${jev.error}`);
+}
 
 let analysis = null;
 let triggerReason = null;
