@@ -13,10 +13,8 @@ export async function deepAnalyze(state, decision, reason) {
     model: config.gptModel,
     prompt,
     reasoning: 'medium',
-    maxOutputTokens: 1800,
-    providerOptions: {
-      gateway: { zeroDataRetention: true }
-    }
+    maxOutputTokens: 1800
   });
+
   return result.text;
 }
