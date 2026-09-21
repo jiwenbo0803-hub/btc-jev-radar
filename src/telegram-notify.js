@@ -1,6 +1,7 @@
 // Telegram 通知模块
 // - 常规雷达：仅 L2/L3 异动推送
-// - 4H 正式复盘：每次复盘完成后推送一份精简中文结论
+// - 4H 正式复盘：每次复盘完成后推送精简中文结论
+// - test 模式：不依赖行情等级，专门验证 Bot Token / Chat ID / Telegram API 链路
 
 import fs from 'node:fs/promises';
 
@@ -41,10 +42,8 @@ export async function sendTelegramMessage(message) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  if (!token || !chatId) {
-    console.log('Telegram 未配置，跳过推送');
-    return false;
-  }
+  if (!token) throw new Error('缺少 TELEGRAM_BOT_TOKEN');
+  if (!chatId) throw new Error('缺少 TELEGRAM_CHAT_ID');
 
   const url = 'https://api.telegram.org/bot' + token + '/sendMessage';
 
@@ -59,11 +58,29 @@ export async function sendTelegramMessage(message) {
       })
     });
 
+    const body = await response.text();
     if (!response.ok) {
-      throw new Error('Telegram 推送失败: ' + await response.text());
+      throw new Error('Telegram API 返回错误：HTTP ' + response.status + ' ' + body);
+    }
+
+    let data;
+    try { data = JSON.parse(body); } catch {}
+    if (data && data.ok === false) {
+      throw new Error('Telegram API 返回失败：' + body);
     }
   }
 
+  return true;
+}
+
+export async function sendTelegramTest() {
+  const now = new Date().toISOString();
+  await sendTelegramMessage(
+    '✅ BTC Jev Radar Telegram 测试成功\n\n' +
+    'GitHub Actions → Telegram 链路正常\n' +
+    'UTC：' + now
+  );
+  console.log('Telegram 测试消息发送成功');
   return true;
 }
 
@@ -83,15 +100,13 @@ function radarMessage(decision, report) {
     '趋势：' + (state.marketStatus?.trend ?? '暂缺'),
     'Jev：异常 ' + pct(jev.anomaly) + '｜结构 ' + pct(jev.structureChange) + '｜深析 ' + pct(jev.needsDeepAnalysis),
     '4H RSI14：' + (state.rsi14?.h4 ?? '暂缺'),
-    '前高：' + (state.structure4h?.prior20High ?? '暂缺') + '｜EMA20：' + (state.trend4h?.ema20 ?? '暂缺'),
+    '前高：' + (state.structure4h?.prior20High ?? '暂缺') + '｜EMA20：' + (state.trend4h?.ema20 ?? '暂缺')
   ];
 
   if (level === 'L3' && report) {
     const parts = report.split(/\n---\n/);
     const analysis = plain(parts.length > 1 ? parts.slice(1).join('\n---\n') : '');
-    if (analysis) {
-      lines.push('', 'AI结论：', analysis);
-    }
+    if (analysis) lines.push('', 'AI结论：', analysis);
   }
 
   return lines.join('\n');
@@ -114,37 +129,43 @@ function fourHourMessage(decision, report) {
     'EMA60：' + (state.trend4h?.ema60 ?? '暂缺') + '｜前低：' + (state.structure4h?.prior20Low ?? '暂缺')
   ];
 
-  if (analysis) {
-    lines.push('', 'AI结论：', analysis);
-  }
-
+  if (analysis) lines.push('', 'AI结论：', analysis);
   return lines.join('\n');
 }
 
 export async function sendRadarTelegram() {
+  const decision = JSON.parse(await fs.readFile('out/decision.json', 'utf8'));
+
+  let report = '';
   try {
-    const decision = JSON.parse(await fs.readFile('out/decision.json', 'utf8'));
-    let report = '';
-    try {
-      report = await fs.readFile('out/report.md', 'utf8');
-    } catch {}
+    report = await fs.readFile('out/report.md', 'utf8');
+  } catch {}
 
-    const message = decision.mode === 'four-hour'
-      ? fourHourMessage(decision, report)
-      : radarMessage(decision, report);
+  const message = decision.mode === 'four-hour'
+    ? fourHourMessage(decision, report)
+    : radarMessage(decision, report);
 
-    if (!message) {
-      console.log('本次未达到 Telegram 推送条件');
-      return false;
-    }
-
-    return await sendTelegramMessage(message);
-  } catch (error) {
-    console.log('Telegram通知跳过:', error.message);
+  if (!message) {
+    console.log('本次雷达等级未达到 L2/L3，不发送 Telegram；这属于正常情况');
     return false;
   }
+
+  await sendTelegramMessage(message);
+  console.log('Telegram 行情消息发送成功');
+  return true;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  await sendRadarTelegram();
+  const mode = process.argv[2] || 'send';
+
+  try {
+    if (mode === 'test') {
+      await sendTelegramTest();
+    } else {
+      await sendRadarTelegram();
+    }
+  } catch (error) {
+    console.error('Telegram 推送失败：' + (error?.message || String(error)));
+    process.exitCode = 1;
+  }
 }
