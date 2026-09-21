@@ -12,7 +12,8 @@
     "four-hour": "node src/index.js four-hour",
     "check": "node --check src/index.js && node --check src/binance.js && node --check src/indicators.js && node --check src/market-state.js && node --check src/jev.js && node --check src/gpt.js && node --check src/report.js && node --check src/github-notify.js && node --check src/telegram-notify.js",
     "notify": "node src/github-notify.js",
-    "telegram": "node src/telegram-notify.js"
+    "telegram": "node src/telegram-notify.js",
+    "telegram:test": "node src/telegram-notify.js test"
   },
   "dependencies": {
     "ai": "7.0.105",
