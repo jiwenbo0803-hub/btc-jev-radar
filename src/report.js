@@ -3,7 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 function pct(v) {
-  return `${(v * 100).toFixed(1)}%`;
+  return typeof v === 'number' && Number.isFinite(v)
+    ? `${(v * 100).toFixed(1)}%`
+    : '暂缺';
 }
 
 export function decisionSummary(state, jev, level, mode) {
@@ -21,6 +23,7 @@ export function decisionSummary(state, jev, level, mode) {
 - Jev 4H结构变化概率：${pct(jev.structureChange)}
 - Jev 需要深度分析概率：${pct(jev.needsDeepAnalysis)}
 - 事件等级：**${level}**
+- Jev 状态：${jev.unavailable ? `本次不可用（${jev.error ?? '未知错误'}）` : '正常'}
 
 ## BTC 4H交易状态
 
