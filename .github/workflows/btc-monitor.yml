@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       telegram_test:
-        description: '发送 Telegram 测试消息'
+        description: '手动运行时发送 Telegram 测试消息'
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -38,15 +38,12 @@ jobs:
       - name: 安装程序依赖
         run: npm install --no-audit --no-fund
 
-      - name: Telegram连接测试
-        if: ${{ inputs.telegram_test == true }}
+      - name: Telegram 连接测试
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.telegram_test == true }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d text="🚨 BTC Jev Radar 测试消息\n\nTelegram 通道连接正常。"
+        run: npm run telegram:test
 
       - name: 运行 Jev 行情巡检
         env:
