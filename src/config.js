@@ -5,12 +5,12 @@ export const config = {
   binanceBaseUrl: process.env.BINANCE_BASE_URL ?? 'https://data-api.binance.vision',
   jevModel: process.env.JEV_MODEL ?? 'typesafe-ai/jev',
 
-  // 4H 正式复盘优先使用 Sol；Gateway/Provider 临时异常时依次降级，
-  // 避免因为单一模型瞬时 5xx 导致整次复盘直接失败。
+  // 4H 正式复盘优先使用 GPT-5.6 Sol。
+  // 当前 Vercel AI Gateway 免费层无法访问 GPT-5.6 系列，
+  // 因此保留一个明确可用的免费模型作为兜底，避免整次复盘直接失败。
   gptModel: process.env.GPT_MODEL ?? 'openai/gpt-5.6-sol',
   gptFallbackModels: [
-    process.env.GPT_FALLBACK_MODEL_1 ?? 'openai/gpt-5.6-terra',
-    process.env.GPT_FALLBACK_MODEL_2 ?? 'openai/gpt-5.6-luna'
+    process.env.GPT_FALLBACK_MODEL_1 ?? 'inclusionai/ling-3.0-flash-vl-free'
   ],
 
   // V0.1 初始阈值，后续需要根据真实运行结果校准。
