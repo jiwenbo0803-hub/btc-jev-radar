@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "BTC 4小时行情雷达：Binance 5分钟数据 + Jev 判断层 + GPT-5.6 Sol 深度分析。",
+  "description": "BTC AI 行情雷达模板：Binance K线 + Jev 决策层 + AI Gateway 深度分析 + GitHub Actions + Telegram",
   "engines": {
     "node": ">=22"
   },
