@@ -1,9 +1,6 @@
 name: BTC 4小时正式复盘（GPT）
 
 on:
-  schedule:
-    # Binance 4H K线在 UTC 00/04/08/12/16/20 点收盘；7分钟后运行，避开切换瞬间。
-    - cron: '7 0,4,8,12,16,20 * * *'
   workflow_dispatch:
 
 permissions:
