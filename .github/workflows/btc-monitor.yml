@@ -8,7 +8,7 @@ on:
       telegram_test:
         description: '手动运行时发送 Telegram 测试消息'
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -22,8 +22,16 @@ concurrency:
 jobs:
   monitor:
     name: Jev 雷达巡检
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_SCHEDULED_RUNS == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    env:
+      BTC_SYMBOL: ${{ vars.BTC_SYMBOL }}
+      BINANCE_BASE_URL: ${{ vars.BINANCE_BASE_URL }}
+      JEV_MODEL: ${{ vars.JEV_MODEL }}
+      GPT_MODEL: ${{ vars.GPT_MODEL }}
+      GPT_FALLBACK_MODEL_1: ${{ vars.GPT_FALLBACK_MODEL_1 }}
+
     steps:
       - name: 检出仓库代码
         uses: actions/checkout@v4
@@ -50,13 +58,15 @@ jobs:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         run: npm run monitor
 
-      - name: GitHub 异动提醒
+      - name: GitHub Issue 异动提醒
+        if: ${{ vars.ENABLE_GITHUB_ISSUES == 'true' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run notify
 
       - name: Telegram 手机异动提醒
+        if: ${{ vars.ENABLE_TELEGRAM == 'true' }}
         continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -76,7 +86,8 @@ jobs:
           path: out/
           retention-days: 14
 
-      - name: 如果触发 L3，则保存深度分析报告
+      - name: 如果触发 L3，则写入 reports 文件夹
+        if: ${{ vars.SAVE_REPORTS_TO_REPO == 'true' }}
         run: |
           if [ ! -f out/report.md ]; then exit 0; fi
           git config user.name "btc-jev-radar[bot]"
