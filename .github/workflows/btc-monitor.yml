@@ -1,8 +1,6 @@
 name: BTC 行情雷达（Jev）
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       telegram_test:
